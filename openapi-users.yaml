@@ -1,0 +1,371 @@
+openapi: "3.0.0"
+info:
+  title: QWILT users API
+  description: An API for the users service
+  version: 0.0.11
+
+servers:
+  - url: https://users.qwilt.com/api/1
+
+# tags:
+#   - name: users
+#     description: Qwilt Users
+#   - name: user-roles
+#     description: Qwilt User Roles
+
+components:
+  schemas:
+
+    OrgType:
+      type: string
+      enum:
+        - CP
+        - SP
+        - Reseller
+        - Qwilt
+    AllowedOrgTypes:
+      type: array
+      items:
+        $ref: "#/components/schemas/OrgType"
+    RoleItem:
+      type: object
+      required:
+        - role
+        - id
+        - orgType
+      properties:
+        role:
+          type: string
+        id:
+          type: string
+        allowedOrgTypes:
+          $ref: "#/components/schemas/AllowedOrgTypes"
+    RolesList:
+      type: array
+      items:
+        $ref: "#/components/schemas/RoleItem"
+    UserStatus:
+      type: string
+      enum:
+        - staged
+        - provisioned
+        - active
+        - recovery
+        - locked_out
+        - password_expired
+        - suspended
+        - deprovisioned
+        - unknown
+    User:
+      type: object
+      required:
+        - username
+        - email
+        - firstName
+        - lastName
+      properties:
+        username:
+          type: string
+          format: "email"
+        firstName:
+          type: "string"
+        lastName:
+          type: "string"
+        email:
+          type: "string"
+          format: "email"
+        orgId:
+          type: "string"
+    UserCreate:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            roles:
+              type: array
+              items:
+                type: string
+    UserResponse:
+      allOf:
+        - type: object
+          properties:
+            userStatus:
+              $ref: "#/components/schemas/UserStatus"
+              description: "User Status"
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            orgType:
+              type: string
+        - type: object
+          properties:
+            roles:
+              $ref: "#/components/schemas/RolesList"
+    ListOfUsers:
+      type: array
+      items:
+        $ref: "#/components/schemas/UserResponse"
+    ListOfRoles:
+      type: array
+      items:
+        $ref: "#/components/schemas/RoleItem"
+  responses:
+    ok:
+      description: "Success"
+    ok-user:
+      description: "Success"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UserResponse"
+    ok-status:
+      description: "Success"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UserStatus"
+    ok-roles:
+      description: "Success"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ListOfRoles"
+    unauthorized:
+      description: "Unauthorized"
+    invalid:
+      description: "Invalid request"
+
+paths:
+    /users:
+      post:
+        description: create a user
+        tags:
+          - users
+        operationId: createUser
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCreate"
+              example:
+                username: eyalp@qwilt.com
+                firstName: Eyal
+                lastName: Politansky
+                email: eyalp@qwilt.com
+        responses:
+          "200":
+            $ref: "#/components/responses/ok-user"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+      get:
+        description: "get list of users"
+        operationId: "listUsers"
+        tags:
+          - users
+        #      parameters:  removed due to implementation limitation
+        #        - in: query
+        #          name: withRoles
+        #          schema:
+        #            type: boolean
+        #          description: "with roles"
+        #          required: false
+        responses:
+          "200":
+            description: success
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/ListOfUsers"
+
+    /users/{username}:
+      get:
+        description: get user by username
+        tags:
+          - users
+        operationId: getUser
+        parameters:
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+          - in: query
+            name: withRoles
+            schema:
+              type: boolean
+            description: "with roles"
+            required: false
+        responses:
+          "200":
+            $ref: "#/components/responses/ok-user
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+      put:
+        description: update a user
+        tags:
+          - users
+        operationId: updateUser
+        parameters:
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        responses:
+          "200":
+            $ref: "#/components/responses/ok-user"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+      delete:
+        description: delete user
+        tags:
+          - users
+        operationId: deleteUser
+        parameters:
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+        responses:
+          "200":
+            $ref: "#/components/responses/ok"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+    /users/{username}/actions/reset-password:
+      post:
+        description: trigger user password reset flow
+        tags:
+          - users
+        operationId: resetPassword
+        parameters:
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+        responses:
+          "200":
+            $ref: "#/components/responses/ok"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+    /users/{username}/actions/activate:
+      post:
+        description: activate or deactivate user
+        tags:
+          - users
+        operationId: changeUserActiveState
+        parameters:
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+          - in: query
+            name: active
+            schema:
+              type: boolean
+            required: true
+        responses:
+          "200":
+            $ref: "#/components/responses/ok-status"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+    /me/actions/password-reset:
+      post:
+        description: trigger self password reset flow
+        tags:
+          - self-update
+        operationId: selfResetPassword
+        responses:
+          "200":
+            $ref: "#/components/responses/ok"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+    /roles/{role}/users/{username}:
+      put:
+        description: add a user to a role
+        tags:
+          - roles
+        operationId: addUserToRole
+        parameters:
+          - in: path
+            name: role
+            schema:
+              type: string
+            required: true
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+        responses:
+          "200":
+            $ref: "#/components/responses/ok"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+      delete:
+        description: remove a user from a role
+        tags:
+          - roles
+        operationId: removeUserFromRole
+        parameters:
+          - in: path
+            name: role
+            schema:
+              type: string
+            required: true
+          - in: path
+            name: username
+            schema:
+              type: string
+            required: true
+        responses:
+          "200":
+            $ref: "#/components/responses/ok"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
+    /roles:
+      get:
+        description: list roles
+        tags:
+          - roles
+        operationId: listRoles
+        parameters:
+          - in: query
+            name: orgType
+            schema:
+              type: string
+            required: false
+        responses:
+          "200":
+            $ref: "#/components/responses/ok-roles"
+          "400":
+            $ref: "#/components/responses/invalid"
+          "401":
+            $ref: "#/components/responses/unauthorized"
